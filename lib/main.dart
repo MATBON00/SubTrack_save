@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io';
+
 import 'package:hive_flutter/hive_flutter.dart';
 
 // Nome della box Hive per la persistenza
@@ -9,6 +9,8 @@ const String kSubBox = 'subscriptions_box';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+
+
   // Inizializzazione Hive
   await Hive.initFlutter();
   await Hive.openBox(kSubBox);
@@ -34,7 +36,7 @@ class SubTrackApp extends StatelessWidget {
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF6C63FF),
         scaffoldBackgroundColor: const Color(0xFF0A0A0F),
-        fontFamily: 'Inter', // Assicurati di avere un font simile o usa quello di default
+        fontFamily: 'Inter', 
       ),
       home: const MyHomePage(),
     );
@@ -100,6 +102,9 @@ class _MyHomePageState extends State<MyHomePage> {
   late Box _box;
   List<Subscription> _allSubscriptions = [];
 
+  // Pubblicità
+ bool _isBannerLoaded = false;
+
   // Servizi predefiniti per il picker
   final List<Map<String, dynamic>> _availableServices = [
     {'name': 'Netflix', 'icon': Icons.movie_filter_rounded, 'color': const Color(0xFFE50914)},
@@ -118,6 +123,12 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _box = Hive.box(kSubBox);
     _loadFromHive();
+    }
+
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   // Caricamento dati da Hive
@@ -385,72 +396,81 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF6C63FF), Color(0xFF9B59B6)]),
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('SPESA MENSILE', style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                    const SizedBox(height: 8),
-                    Text('${_totalMonthly.toStringAsFixed(2)} €', style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _statChip('${_activeSubs.length} attivi', Icons.check_circle_outline),
-                        const SizedBox(width: 8),
-                        _statChip('${_canceledSubs.length} disdetti', Icons.cancel_outlined),
-                      ],
+      body: Column(
+        children: [
+          Expanded(
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFF6C63FF), Color(0xFF9B59B6)]),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('SPESA MENSILE', style: TextStyle(fontSize: 12, color: Colors.white70, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                          const SizedBox(height: 8),
+                          Text('${_totalMonthly.toStringAsFixed(2)} €', style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              _statChip('${_activeSubs.length} attivi', Icons.check_circle_outline),
+                              const SizedBox(width: 8),
+                              _statChip('${_canceledSubs.length} disdetti', Icons.cancel_outlined),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                if (_activeSubs.isNotEmpty) ...[
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
+                      child: Text('ATTIVI', style: TextStyle(color: Colors.white24, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) => _SubCard(sub: _activeSubs[i], onTap: () => _goToDetail(_activeSubs[i])),
+                        childCount: _activeSubs.length,
+                      ),
+                    ),
+                  ),
+                ],
+                if (_canceledSubs.isNotEmpty) ...[
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
+                      child: Text('DISDETTI', style: TextStyle(color: Colors.white24, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) => _CanceledCard(sub: _canceledSubs[i]),
+                        childCount: _canceledSubs.length,
+                      ),
+                    ),
+                  ),
+                ],
+                const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              ],
             ),
           ),
-          if (_activeSubs.isNotEmpty) ...[
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 10, 20, 10),
-                child: Text('ATTIVI', style: TextStyle(color: Colors.white24, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => _SubCard(sub: _activeSubs[i], onTap: () => _goToDetail(_activeSubs[i])),
-                  childCount: _activeSubs.length,
-                ),
-              ),
-            ),
-          ],
-          if (_canceledSubs.isNotEmpty) ...[
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
-                child: Text('DISDETTI', style: TextStyle(color: Colors.white24, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2)),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => _CanceledCard(sub: _canceledSubs[i]),
-                  childCount: _canceledSubs.length,
-                ),
-              ),
-            ),
-          ],
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          
+          // --- PUBBLICITÀ BANNER ---
+          
         ],
       ),
     );
